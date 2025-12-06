@@ -1,0 +1,1183 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>图论可视化工具</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#165DFF',
+                        secondary: '#722ED1',
+                        neutral: '#1F2937',
+                        danger: '#F53F3F'
+                    },
+                    fontFamily: {
+                        inter: ['Inter', 'system-ui', 'sans-serif'],
+                    },
+                }
+            }
+        }
+    </script>
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .content-auto {
+                content-visibility: auto;
+            }
+            .node-transition {
+                transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            }
+            .edge-transition {
+                transition: all 0.2s ease-in-out;
+            }
+            .input-appear {
+                animation: inputAppear 0.3s ease-out forwards;
+            }
+            .node-appear {
+                animation: nodeAppear 0.3s ease-out forwards;
+            }
+            .shake {
+                animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both;
+            }
+            .tooltip-appear {
+                animation: tooltipAppear 0.3s ease-out forwards;
+            }
+        }
+
+        @keyframes inputAppear {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes nodeAppear {
+            from { opacity: 0; transform: scale(0.8); }
+            to { opacity: 1; transform: scale(1); }
+        }
+
+        @keyframes shake {
+            10%, 90% { transform: translateX(-1px); }
+            20%, 80% { transform: translateX(2px); }
+            30%, 50%, 70% { transform: translateX(-3px); }
+            40%, 60% { transform: translateX(3px); }
+        }
+
+        @keyframes tooltipAppear {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 font-inter text-neutral min-h-screen flex flex-col">
+    <!-- 顶部导航 -->
+    <header class="bg-white shadow-md z-10">
+        <div class="container mx-auto px-4 py-3 flex justify-between items-center">
+            <div class="flex items-center space-x-2">
+                <i class="fa fa-project-diagram text-primary text-2xl"></i>
+                <h1 class="text-xl font-bold text-neutral">图论可视化工具</h1>
+            </div>
+            <div class="flex items-center space-x-4">
+                <button id="clear-btn" class="flex items-center space-x-1 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors text-sm">
+                    <i class="fa fa-trash-o"></i>
+                    <span>清空</span>
+                </button>
+                <button id="help-btn" class="flex items-center space-x-1 px-3 py-1.5 bg-primary hover:bg-primary/90 text-white rounded-md transition-colors text-sm">
+                    <i class="fa fa-question-circle"></i>
+                    <span>帮助</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- 主要内容区 - 改为上下结构 -->
+    <main class="flex-1 container mx-auto px-4 py-6 flex flex-col gap-6">
+        <!-- 上方输入面板 -->
+        <div class="bg-white rounded-xl p-5 shadow-lg">
+            <div class="mb-4">
+                <h2 class="text-lg font-semibold flex items-center">
+                    <i class="fa fa-keyboard-o text-primary mr-2"></i>
+                    输入区域
+                </h2>
+                <p class="text-gray-500 text-sm mt-1">输入节点(如 "1") 或边(如 "1 2 5")，按回车确认</p>
+            </div>
+            
+            <!-- 输入框和最短路径查找在同一行 -->
+            <div class="flex flex-col lg:flex-row gap-4">
+                <!-- 输入区域 -->
+                <div class="flex-1">
+                    <div id="inputs-container" class="space-y-3">
+                        <!-- 初始输入框 -->
+                        <div class="input-group relative">
+                            <input type="text" 
+                                   class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none transition-all"
+                                   placeholder="输入节点(如1)或边(如1 2 5)"
+                                   autocomplete="off">
+                            <button class="delete-btn absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-red-500 opacity-0 transition-opacity duration-200">
+                                <i class="fa fa-times"></i>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-6 bg-blue-50 border border-blue-100 rounded-lg p-4">
+                        <h3 class="font-medium text-primary flex items-center text-sm">
+                            <i class="fa fa-info-circle mr-1"></i>
+                            使用说明
+                        </h3>
+                        <ul class="mt-2 text-gray-600 text-sm space-y-1.5">
+                            <li>• 输入单个正整数(如"5")添加节点</li>
+                            <li>• 输入三个值(如"3 7 5")添加边，其中5为路径长度(0-100)</li>
+                            <li>• 按Enter确认输入并创建新框</li>
+                            <li>• 点击×删除对应输入</li>
+                            <li>• 右侧可拖拽节点调整位置</li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <!-- Dijkstra最短路径区域 -->
+                <div class="lg:w-1/3 border-l border-gray-200 pl-4">
+                    <h2 class="text-lg font-semibold flex items-center">
+                        <i class="fa fa-road text-secondary mr-2"></i>
+                        最短路径 (Dijkstra)
+                    </h2>
+                    <p class="text-gray-500 text-sm mt-1">输入两个节点(如 "1 5")，查找最短路径</p>
+                    <div class="mt-3 flex gap-2">
+                        <input type="text" 
+                               id="dijkstra-input"
+                               class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none transition-all"
+                               placeholder="输入起点 终点 (如1 5)"
+                               autocomplete="off">
+                        <button id="dijkstra-btn" class="px-4 py-2 bg-secondary hover:bg-secondary/90 text-white rounded-lg transition-colors">
+                            <i class="fa fa-search"></i>
+                            查找
+                        </button>
+                    </div>
+                    <div id="dijkstra-result" class="mt-3 hidden">
+                        <div class="bg-green-50 border border-green-100 rounded-lg p-3">
+                            <h3 class="font-medium text-green-600 flex items-center text-sm">
+                                <i class="fa fa-check-circle mr-1"></i>
+                                最短路径结果
+                            </h3>
+                            <p class="mt-2 text-gray-700 text-sm" id="dijkstra-result-text"></p>
+                        </div>
+                    </div>
+                    <div id="dijkstra-error" class="mt-3 hidden">
+                        <div class="bg-red-50 border border-red-100 rounded-lg p-3">
+                            <h3 class="font-medium text-red-600 flex items-center text-sm">
+                                <i class="fa fa-exclamation-circle mr-1"></i>
+                                错误
+                            </h3>
+                            <p class="mt-2 text-gray-700 text-sm" id="dijkstra-error-text"></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 下方可视化面板 -->
+        <div class="flex-1 bg-white rounded-xl p-5 shadow-lg flex flex-col">
+            <div class="mb-4">
+                <h2 class="text-lg font-semibold flex items-center">
+                    <i class="fa fa-eye text-secondary mr-2"></i>
+                    可视化区域
+                </h2>
+                <p class="text-gray-500 text-sm mt-1">拖拽节点可调整位置，连边将自动跟随</p>
+            </div>
+            
+            <div class="flex-1 min-h-[500px] relative bg-gray-50 rounded-lg overflow-hidden border border-gray-200">
+                <!-- 可视化画布 -->
+                <canvas id="graph-canvas" class="w-full h-full"></canvas>
+                
+                <!-- 空状态提示 -->
+                <div id="empty-state" class="absolute inset-0 flex flex-col items-center justify-center text-gray-400">
+                    <i class="fa fa-area-chart text-5xl mb-3 opacity-30"></i>
+                    <p>输入节点和边以显示图形</p>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- 提示框 -->
+    <div id="tooltip" class="fixed bottom-6 right-6 bg-danger text-white px-4 py-2 rounded-lg shadow-lg opacity-0 pointer-events-none tooltip-appear z-50 max-w-xs">
+        <p id="tooltip-text"></p>
+    </div>
+
+    <!-- 帮助模态框 -->
+    <div id="help-modal" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center opacity-0 pointer-events-none transition-opacity duration-300">
+        <div class="bg-white rounded-xl max-w-md w-full mx-4 p-6 transform scale-95 transition-transform duration-300">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-bold text-neutral">使用帮助</h3>
+                <button id="close-help" class="text-gray-400 hover:text-gray-600">
+                    <i class="fa fa-times"></i>
+                </button>
+            </div>
+            <div class="space-y-4 text-gray-600">
+                <div>
+                    <h4 class="font-medium text-primary">添加节点</h4>
+                    <p class="text-sm mt-1">在输入框中输入单个正整数(如"5")，按Enter确认，将创建一个新节点。</p>
+                </div>
+                <div>
+                    <h4 class="font-medium text-primary">添加边</h4>
+                    <p class="text-sm mt-1">在输入框中输入三个值(如"3 7 5")，按Enter确认，将创建一条连接3和7的边，路径长度为5（0-100）。</p>
+                </div>
+                <div>
+                    <h4 class="font-medium text-primary">查找最短路径</h4>
+                    <p class="text-sm mt-1">在Dijkstra区域输入两个节点，点击查找，将显示最短路径，路径节点标蓝，起点终点标绿。</p>
+                </div>
+                <div>
+                    <h4 class="font-medium text-primary">调整图形</h4>
+                    <p class="text-sm mt-1">在右侧可视化区域，用鼠标拖拽节点可以调整其位置，边将自动跟随节点移动。</p>
+                </div>
+            </div>
+            <button id="got-it" class="mt-6 w-full bg-primary hover:bg-primary/90 text-white py-2 rounded-lg transition-colors">
+                明白了
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // 图数据结构
+        const graph = {
+            nodes: new Map(),  // id -> { x, y, radius, color }
+            edges: new Map()   // id -> { source, target, w }
+        };
+
+        // Dijkstra结果状态
+        const dijkstraResult = {
+            pathNodes: [],       // 最短路径的节点数组
+            pathEdges: [],       // 最短路径的边ID数组
+            distance: 0,         // 最短路径总长度
+            source: '',          // 起点
+            target: '',          // 终点
+            hasResult: false,    // 是否有有效结果
+            error: ''            // 错误信息
+        };
+
+        // DOM元素
+        const inputsContainer = document.getElementById('inputs-container');
+        const canvas = document.getElementById('graph-canvas');
+        const ctx = canvas.getContext('2d');
+        const emptyState = document.getElementById('empty-state');
+        const clearBtn = document.getElementById('clear-btn');
+        const helpBtn = document.getElementById('help-btn');
+        const helpModal = document.getElementById('help-modal');
+        const closeHelp = document.getElementById('close-help');
+        const gotIt = document.getElementById('got-it');
+        const tooltip = document.getElementById('tooltip');
+        const tooltipText = document.getElementById('tooltip-text');
+        
+        // Dijkstra相关DOM元素
+        const dijkstraInput = document.getElementById('dijkstra-input');
+        const dijkstraBtn = document.getElementById('dijkstra-btn');
+        const dijkstraResultEl = document.getElementById('dijkstra-result');
+        const dijkstraResultText = document.getElementById('dijkstra-result-text');
+        const dijkstraErrorEl = document.getElementById('dijkstra-error');
+        const dijkstraErrorText = document.getElementById('dijkstra-error-text');
+
+        // 画布状态
+        const canvasState = {
+            isDragging: false,
+            draggedNode: null,
+            offsetX: 0,
+            offsetY: 0,
+            width: 0,
+            height: 0,
+            minNodeDistance: 60  // 节点间最小距离
+        };
+
+        // 提示框定时器
+        let tooltipTimer = null;
+
+        // 初始化
+        function init() {
+            // 设置画布尺寸
+            resizeCanvas();
+            window.addEventListener('resize', resizeCanvas);
+            
+            // 初始化第一个输入框
+            setupInputEvents(inputsContainer.querySelector('input'));
+            
+            // 事件监听
+            clearBtn.addEventListener('click', clearAll);
+            helpBtn.addEventListener('click', openHelpModal);
+            closeHelp.addEventListener('click', closeHelpModal);
+            gotIt.addEventListener('click', closeHelpModal);
+            
+            // Dijkstra事件监听
+            dijkstraBtn.addEventListener('click', handleDijkstraQuery);
+            dijkstraInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    handleDijkstraQuery();
+                }
+            });
+            
+            // 画布事件
+            canvas.addEventListener('mousedown', startDrag);
+            canvas.addEventListener('mousemove', drag);
+            canvas.addEventListener('mouseup', endDrag);
+            canvas.addEventListener('mouseleave', endDrag);
+            
+            // 初始渲染
+            renderGraph();
+        }
+
+        // 调整画布尺寸
+        function resizeCanvas() {
+            const container = canvas.parentElement;
+            canvasState.width = container.clientWidth;
+            canvasState.height = container.clientHeight;
+            
+            // 设置画布实际尺寸（考虑高DPI屏幕）
+            const dpr = window.devicePixelRatio || 1;
+            canvas.width = canvasState.width * dpr;
+            canvas.height = canvasState.height * dpr;
+            ctx.scale(dpr, dpr);
+            
+            // 重新布局节点（如果已有节点）
+            if (graph.nodes.size > 0) {
+                layoutNodes();
+            }
+        }
+
+        // 创建新输入框
+        function createInput() {
+            const inputGroup = document.createElement('div');
+            inputGroup.className = 'input-group relative input-appear';
+            
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.className = 'w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary/50 focus:border-primary outline-none transition-all';
+            input.placeholder = '输入节点(如1)或边(如1 2 5)';
+            input.autocomplete = 'off';
+            
+            const deleteBtn = document.createElement('button');
+            deleteBtn.className = 'delete-btn absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-red-500 opacity-0 transition-opacity duration-200';
+            deleteBtn.innerHTML = '<i class="fa fa-times"></i>';
+            deleteBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                removeInput(inputGroup, input.value);
+            });
+            
+            inputGroup.appendChild(input);
+            inputGroup.appendChild(deleteBtn);
+            inputsContainer.appendChild(inputGroup);
+            
+            // 输入框获得焦点时显示删除按钮
+            input.addEventListener('focus', () => {
+                deleteBtn.style.opacity = '1';
+            });
+            
+            // 输入框失去焦点且为空时隐藏删除按钮
+            input.addEventListener('blur', () => {
+                if (!input.value.trim()) {
+                    deleteBtn.style.opacity = '0';
+                }
+            });
+            
+            setupInputEvents(input);
+            input.focus();
+            
+            return input;
+        }
+
+        // 为输入框设置事件
+        function setupInputEvents(input) {
+            // 回车键提交
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' && input.value.trim()) {
+                    const isValid = processInput(input.value.trim());
+                    
+                    // 只有输入有效时才创建新输入框
+                    if (isValid) {
+                        // 检查是否是最后一个输入框
+                        const inputs = inputsContainer.querySelectorAll('input');
+                        const lastInput = inputs[inputs.length - 1];
+                        if (input === lastInput) {
+                            createInput();
+                        }
+                    } else {
+                        // 输入无效时抖动提示
+                        input.classList.add('shake');
+                        setTimeout(() => input.classList.remove('shake'), 500);
+                    }
+                }
+            });
+        }
+
+        // 验证输入是否为有效的正整数
+        function isValidPositiveInteger(value) {
+            // 检查是否为整数且大于0，不超过2147483647
+            const num = parseInt(value, 10);
+            return Number.isInteger(num) && num > 0 && num <= 2147483647;
+        }
+
+        // 显示提示信息（确保2秒后消失）
+        function showTooltip(message) {
+            // 清除之前的定时器，避免冲突
+            if (tooltipTimer) {
+                clearTimeout(tooltipTimer);
+                tooltipTimer = null;
+            }
+            
+            tooltipText.textContent = message;
+            tooltip.classList.remove('opacity-0', 'pointer-events-none');
+            
+            // 2秒后自动隐藏
+            tooltipTimer = setTimeout(() => {
+                tooltip.classList.add('opacity-0', 'pointer-events-none');
+                tooltipTimer = null;
+            }, 2000);
+        }
+
+        // 处理输入内容，返回是否有效
+        function processInput(value) {
+            const parts = value.trim().split(/\s+/);
+            
+            if (parts.length === 1) {
+                // 节点输入验证
+                if (!isValidPositiveInteger(parts[0])) {
+                    showTooltip("请输入有效的正整数（不大于2147483647）");
+                    return false;
+                }
+                
+                const nodeId = parts[0];
+                if (!graph.nodes.has(nodeId)) {
+                    addNode(nodeId);
+                    return true;
+                }
+                showTooltip(`节点 ${nodeId} 已存在`);
+                return false;
+            } else if (parts.length === 3) {
+                // 边输入验证（u v w）
+                const [source, target, wStr] = parts;
+                
+                // 验证u和v
+                if (!isValidPositiveInteger(source) || !isValidPositiveInteger(target)) {
+                    showTooltip("节点必须是有效的正整数（不大于2147483647）");
+                    return false;
+                }
+                
+                // 验证w
+                const w = parseFloat(wStr);
+                if (isNaN(w) || w < 0 || w > 100 || !Number.isFinite(w)) {
+                    showTooltip("路径长度必须是0到100之间的有效数字");
+                    return false;
+                }
+                
+                // 检查节点是否存在
+                if (!graph.nodes.has(source)) {
+                    showTooltip(`无法创建边：节点 ${source} 不存在`);
+                    return false;
+                }
+                if (!graph.nodes.has(target)) {
+                    showTooltip(`无法创建边：节点 ${target} 不存在`);
+                    return false;
+                }
+                if (source === target) {
+                    showTooltip("无法创建边：节点不能与自身连接");
+                    return false;
+                }
+                
+                // 创建边（使用排序后的ID作为键，避免重复）
+                const edgeId = [source, target].sort().join('-');
+                if (!graph.edges.has(edgeId)) {
+                    graph.edges.set(edgeId, { source, target, w: w }); // 保存权重w
+                    renderGraph();
+                    return true;
+                }
+                showTooltip(`边 ${source}-${target} 已存在`);
+                return false;
+            }
+            
+            showTooltip("输入格式无效，请输入单个节点或三个值（u v w，w为0-100的路径长度）");
+            return false;
+        }
+
+        // 移除输入及其影响
+        function removeInput(inputGroup, value) {
+            // 移除输入产生的元素
+            removeInputEffects(value);
+            
+            // 移除输入框
+            inputGroup.remove();
+            
+            // 确保至少有一个输入框
+            const inputs = inputsContainer.querySelectorAll('input');
+            if (inputs.length === 0) {
+                createInput();
+            } else {
+                // 聚焦到最后一个输入框
+                inputs[inputs.length - 1].focus();
+            }
+            
+            renderGraph();
+        }
+
+        // 移除输入产生的元素
+        function removeInputEffects(value) {
+            if (!value) return;
+            
+            const parts = value.trim().split(/\s+/);
+            
+            if (parts.length === 1) {
+                // 节点输入 - 检查是否还有其他输入引用该节点
+                const nodeId = parts[0];
+                let hasOtherReferences = false;
+                
+                // 检查其他输入是否引用该节点
+                const inputs = inputsContainer.querySelectorAll('input');
+                for (const input of inputs) {
+                    if (input.value.trim() === value) continue;
+                    
+                    const inputParts = input.value.trim().split(/\s+/);
+                    if (inputParts.includes(nodeId)) {
+                        hasOtherReferences = true;
+                        break;
+                    }
+                }
+                
+                // 如果没有其他引用，删除节点和相关边
+                if (!hasOtherReferences) {
+                    graph.nodes.delete(nodeId);
+                    
+                    // 删除相关边
+                    const edgesToRemove = [];
+                    graph.edges.forEach((edge, id) => {
+                        if (edge.source === nodeId || edge.target === nodeId) {
+                            edgesToRemove.push(id);
+                        }
+                    });
+                    edgesToRemove.forEach(id => graph.edges.delete(id));
+                }
+            } else if (parts.length === 3) {
+                // 边输入
+                const [source, target] = parts;
+                const edgeId = [source, target].sort().join('-');
+                graph.edges.delete(edgeId);
+            }
+        }
+
+        // 添加节点 - 确保不与现有节点重合
+        function addNode(id) {
+            const centerX = canvasState.width / 2;
+            const centerY = canvasState.height / 2;
+            let x, y;
+            
+            if (graph.nodes.size === 0) {
+                // 第一个节点放在中心
+                x = centerX;
+                y = centerY;
+            } else {
+                // 尝试找到合适的位置，确保与所有现有节点保持最小距离
+                let attempts = 0;
+                const maxAttempts = 50;
+                let radius = Math.min(canvasState.width, canvasState.height) * 0.2;
+                
+                // 循环直到找到合适位置或达到最大尝试次数
+                while (attempts < maxAttempts) {
+                    // 生成环形区域内的随机点
+                    const angle = Math.random() * Math.PI * 2;
+                    x = centerX + radius * Math.cos(angle);
+                    y = centerY + radius * Math.sin(angle);
+                    
+                    // 检查是否与所有现有节点保持足够距离
+                    let validPosition = true;
+                    for (const [, node] of graph.nodes) {
+                        const dx = x - node.x;
+                        const dy = y - node.y;
+                        const distance = Math.sqrt(dx * dx + dy * dy);
+                        
+                        if (distance < canvasState.minNodeDistance) {
+                            validPosition = false;
+                            break;
+                        }
+                    }
+                    
+                    if (validPosition) {
+                        // 找到合适位置
+                        break;
+                    }
+                    
+                    // 扩大搜索范围
+                    radius += 20;
+                    attempts++;
+                }
+                
+                // 如果尝试了多次仍未找到位置，强制放置（边缘情况处理）
+                if (attempts >= maxAttempts) {
+                    x = centerX + Math.random() * 100 - 50;
+                    y = centerY + Math.random() * 100 - 50;
+                }
+            }
+            
+            graph.nodes.set(id, {
+                x,
+                y,
+                radius: 24,
+                color: getNodeColor(id),
+                isNew: true // 用于动画效果
+            });
+            
+            // 延迟清除新节点标记（用于动画）
+            setTimeout(() => {
+                const node = graph.nodes.get(id);
+                if (node) node.isNew = false;
+                renderGraph();
+            }, 300);
+            
+            renderGraph();
+        }
+
+        // 节点布局（优化版：减少边交叉）
+        function layoutNodes() {
+            if (graph.nodes.size <= 1) return;
+            
+            const nodesArray = Array.from(graph.nodes.entries()); // [id, node]数组
+            const edges = Array.from(graph.edges.values());
+            
+            // 创建邻接表，记录每个节点的相连节点
+            const adjacency = new Map();
+            nodesArray.forEach(([id]) => adjacency.set(id, new Set()));
+            edges.forEach(edge => {
+                adjacency.get(edge.source).add(edge.target);
+                adjacency.get(edge.target).add(edge.source);
+            });
+            
+            // 应用力导向布局（增强版）
+            nodesArray.forEach(([idA, nodeA]) => {
+                nodesArray.forEach(([idB, nodeB]) => {
+                    if (idA === idB) return;
+                    
+                    // 如果节点正在被拖拽，不改变其位置
+                    if (canvasState.isDragging) {
+                        if (idA === canvasState.draggedNode || idB === canvasState.draggedNode) {
+                            return;
+                        }
+                    }
+                    
+                    const dx = nodeB.x - nodeA.x;
+                    const dy = nodeB.y - nodeA.y;
+                    const distance = Math.sqrt(dx * dx + dy * dy) || 0.1; // 避免除以0
+                    
+                    // 判断是否是相连节点
+                    const isConnected = adjacency.get(idA).has(idB);
+                    
+                    if (isConnected) {
+                        // 相连节点：添加吸引力（让相连节点更靠近，减少边交叉）
+                        const desiredDistance = 120; // 相连节点的理想距离
+                        const pullForce = (distance - desiredDistance) * 0.02; // 吸引力因子
+                        const pullX = dx * pullForce;
+                        const pullY = dy * pullForce;
+                        
+                        // 互相吸引
+                        nodeA.x += pullX;
+                        nodeA.y += pullY;
+                        nodeB.x -= pullX;
+                        nodeB.y -= pullY;
+                    } else {
+                        // 非相连节点：增强排斥力（避免无关节点靠近，减少边交叉）
+                        if (distance < canvasState.minNodeDistance * 2) {
+                            const pushForce = (canvasState.minNodeDistance * 2 / distance - 1) * 6;
+                            const pushX = dx / distance * pushForce;
+                            const pushY = dy / distance * pushForce;
+                            
+                            // 互相排斥
+                            nodeA.x -= pushX;
+                            nodeA.y -= pushY;
+                            nodeB.x += pushX;
+                            nodeB.y += pushY;
+                        }
+                    }
+                });
+            });
+            
+            // 保持在画布范围内
+            nodesArray.forEach(([, node]) => {
+                const padding = 40;
+                node.x = Math.max(padding, Math.min(canvasState.width - padding, node.x));
+                node.y = Math.max(padding, Math.min(canvasState.height - padding, node.y));
+            });
+        }
+
+        // 获取节点颜色（基于ID的哈希值生成）
+        function getNodeColor(id) {
+            // 简单的哈希函数，将ID转换为颜色
+            let hash = 0;
+            for (let i = 0; i < id.length; i++) {
+                hash = id.charCodeAt(i) + ((hash << 5) - hash);
+            }
+            
+            // 转换为RGB值，确保颜色不太暗
+            const r = Math.floor(((hash >> 24) & 0xFF) / 2 + 128);
+            const g = Math.floor(((hash >> 16) & 0xFF) / 2 + 128);
+            const b = Math.floor(((hash >> 8) & 0xFF) / 2 + 128);
+            
+            return `rgb(${r}, ${g}, ${b})`;
+        }
+
+        // 开始拖拽节点
+        function startDrag(e) {
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            
+            // 检查是否点击了某个节点
+            for (const [id, node] of graph.nodes) {
+                const dx = x - node.x;
+                const dy = y - node.y;
+                if (dx * dx + dy * dy <= node.radius * node.radius) {
+                    canvasState.isDragging = true;
+                    canvasState.draggedNode = id;
+                    canvasState.offsetX = dx;
+                    canvasState.offsetY = dy;
+                    canvas.style.cursor = 'grabbing';
+                    return;
+                }
+            }
+        }
+
+        // 拖拽节点
+        function drag(e) {
+            if (!canvasState.isDragging || !canvasState.draggedNode) return;
+            
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            
+            // 更新节点位置
+            const node = graph.nodes.get(canvasState.draggedNode);
+            if (node) {
+                node.x = x - canvasState.offsetX;
+                node.y = y - canvasState.offsetY;
+                
+                // 确保节点不会被拖出画布
+                const padding = 40;
+                node.x = Math.max(padding, Math.min(canvasState.width - padding, node.x));
+                node.y = Math.max(padding, Math.min(canvasState.height - padding, node.y));
+                
+                // 拖拽时检查与其他节点的距离，必要时推开
+                for (const [otherId, otherNode] of graph.nodes) {
+                    if (otherId === canvasState.draggedNode) continue;
+                    
+                    const dx = node.x - otherNode.x;
+                    const dy = node.y - otherNode.y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+                    
+                    if (distance < canvasState.minNodeDistance) {
+                        const pushFactor = (canvasState.minNodeDistance - distance) / distance;
+                        otherNode.x -= dx * pushFactor;
+                        otherNode.y -= dy * pushFactor;
+                    }
+                }
+                
+                renderGraph();
+            }
+        }
+
+        // 结束拖拽
+        function endDrag() {
+            if (canvasState.isDragging) {
+                canvasState.isDragging = false;
+                canvasState.draggedNode = null;
+                canvas.style.cursor = 'default';
+            }
+        }
+
+        // 渲染图形
+        function renderGraph() {
+            // 清空画布
+            ctx.clearRect(0, 0, canvasState.width, canvasState.height);
+            
+            // 显示/隐藏空状态
+            if (graph.nodes.size === 0) {
+                emptyState.classList.remove('hidden');
+                return;
+            } else {
+                emptyState.classList.add('hidden');
+            }
+            
+            // 绘制边
+            graph.edges.forEach((edge, edgeId) => {
+                const source = graph.nodes.get(edge.source);
+                const target = graph.nodes.get(edge.target);
+                
+                if (source && target) {
+                    // 计算边的起点和终点（从节点边缘开始）
+                    const dx = target.x - source.x;
+                    const dy = target.y - source.y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+                    
+                    const startX = source.x + (dx / distance) * source.radius;
+                    const startY = source.y + (dy / distance) * source.radius;
+                    const endX = target.x - (dx / distance) * target.radius;
+                    const endY = target.y - (dy / distance) * target.radius;
+                    
+                    // 判断是否是最短路径上的边
+                    const isPathEdge = dijkstraResult.hasResult && dijkstraResult.pathEdges.includes(edgeId);
+                    
+                    // 绘制边
+                    ctx.beginPath();
+                    ctx.moveTo(startX, startY);
+                    ctx.lineTo(endX, endY);
+                    ctx.strokeStyle = isPathEdge ? 'rgba(59, 130, 246, 0.8)' : 'rgba(107, 114, 128, 0.6)';
+                    ctx.lineWidth = isPathEdge ? 3 : 2;
+                    ctx.stroke();
+                    
+                    // 绘制边的权重w（路径长度）
+                    if (edge.w !== undefined) {
+                        // 计算边的中点
+                        const midX = (startX + endX) / 2;
+                        const midY = (startY + endY) / 2;
+                        
+                        // 计算边的角度（弧度）
+                        const angle = Math.atan2(dy, dx);
+                        
+                        // 保存当前画布状态
+                        ctx.save();
+                        
+                        // 平移到中点，旋转到边的角度
+                        ctx.translate(midX, midY);
+                        ctx.rotate(angle);
+                        
+                        // 绘制权重文本相关配置
+                        ctx.font = 'bold 12px Inter, sans-serif';
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'middle';
+                        const weightText = edge.w.toString();
+                        const textWidth = ctx.measureText(weightText).width;
+                        
+                        // 绘制背景矩形，让文字更清晰
+                        ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+                        ctx.fillRect(-textWidth/2 - 3, -8, textWidth + 6, 16);
+                        
+                        // 绘制权重文本（整体）
+                        ctx.fillStyle = '#374151';
+                        ctx.fillText(weightText, 0, 0);
+
+                        // 核心修改：为每个6/9字符单独添加下划线
+                        const charWidth = textWidth / weightText.length; // 单个字符平均宽度
+                        const underlineY = 6; // 下划线在文本下方6px
+                        const underlineThickness = 1.2; // 下划线粗细
+                        
+                        // 遍历每个字符，定位并绘制下划线
+                        for (let i = 0; i < weightText.length; i++) {
+                            const char = weightText[i];
+                            if (char === '6' || char === '9') {
+                                // 计算当前字符的左右偏移
+                                const charLeft = -textWidth/2 + i * charWidth;
+                                const charRight = charLeft + charWidth;
+                                
+                                // 绘制单个字符的下划线
+                                ctx.beginPath();
+                                ctx.moveTo(charLeft, underlineY); // 下划线左端点
+                                ctx.lineTo(charRight, underlineY); // 下划线右端点
+                                ctx.strokeStyle = '#374151'; // 下划线颜色和文字一致
+                                ctx.lineWidth = underlineThickness;
+                                ctx.stroke();
+                            }
+                        }
+                        
+                        // 恢复画布状态
+                        ctx.restore();
+                    }
+                }
+            });
+            
+            // 绘制节点
+            graph.nodes.forEach((node, id) => {
+                // 判断节点状态
+                const isSource = dijkstraResult.hasResult && id === dijkstraResult.source;
+                const isTarget = dijkstraResult.hasResult && id === dijkstraResult.target;
+                const isPathNode = dijkstraResult.hasResult && dijkstraResult.pathNodes.includes(id) && !isSource && !isTarget;
+                
+                // 绘制节点阴影
+                ctx.beginPath();
+                ctx.arc(node.x, node.y, node.radius + 4, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
+                ctx.fill();
+                
+                // 绘制节点
+                ctx.beginPath();
+                ctx.arc(node.x, node.y, node.radius, 0, Math.PI * 2);
+                
+                // 设置节点颜色
+                let fillColor = node.color;
+                if (isSource || isTarget) {
+                    fillColor = '#10B981'; // 绿色 - 起点/终点
+                } else if (isPathNode) {
+                    fillColor = '#3B82F6'; // 蓝色 - 路径节点
+                }
+                
+                // 如果是新节点，添加动画效果
+                if (node.isNew) {
+                    const gradient = ctx.createRadialGradient(
+                        node.x - node.radius/3, node.y - node.radius/3, 0,
+                        node.x, node.y, node.radius
+                    );
+                    gradient.addColorStop(0, '#ffffff');
+                    gradient.addColorStop(1, fillColor);
+                    ctx.fillStyle = gradient;
+                } else {
+                    ctx.fillStyle = fillColor;
+                }
+                
+                ctx.fill();
+                
+                // 节点边框
+                ctx.beginPath();
+                ctx.arc(node.x, node.y, node.radius, 0, Math.PI * 2);
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+                
+                // 节点文本
+                ctx.font = 'bold 14px Inter, sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillStyle = '#ffffff';
+                ctx.fillText(id, node.x, node.y);
+                
+                // 如果是正在拖拽的节点，添加高亮效果
+                if (canvasState.draggedNode === id) {
+                    ctx.beginPath();
+                    ctx.arc(node.x, node.y, node.radius + 3, 0, Math.PI * 2);
+                    ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
+                    ctx.lineWidth = 2;
+                    ctx.setLineDash([5, 3]);
+                    ctx.stroke();
+                    ctx.setLineDash([]);
+                }
+            });
+        }
+
+        // 清空所有内容
+        function clearAll() {
+            // 清空图数据
+            graph.nodes.clear();
+            graph.edges.clear();
+            
+            // 清空Dijkstra结果
+            dijkstraResult.pathNodes = [];
+            dijkstraResult.pathEdges = [];
+            dijkstraResult.distance = 0;
+            dijkstraResult.source = '';
+            dijkstraResult.target = '';
+            dijkstraResult.hasResult = false;
+            dijkstraResult.error = '';
+            dijkstraResultEl.classList.add('hidden');
+            dijkstraErrorEl.classList.add('hidden');
+            dijkstraInput.value = '';
+            
+            // 清空输入框，保留一个
+            const inputs = inputsContainer.querySelectorAll('.input-group');
+            inputs.forEach((group, index) => {
+                if (index > 0) group.remove();
+            });
+            
+            // 清空第一个输入框
+            const firstInput = inputsContainer.querySelector('input');
+            firstInput.value = '';
+            firstInput.focus();
+            
+            // 隐藏删除按钮
+            const deleteBtn = inputsContainer.querySelector('.delete-btn');
+            deleteBtn.style.opacity = '0';
+            
+            // 重新渲染
+            renderGraph();
+        }
+
+        // 打开帮助模态框
+        function openHelpModal() {
+            helpModal.classList.remove('opacity-0', 'pointer-events-none');
+            helpModal.querySelector('div').classList.remove('scale-95');
+            helpModal.querySelector('div').classList.add('scale-100');
+        }
+
+        // 关闭帮助模态框
+        function closeHelpModal() {
+            helpModal.classList.add('opacity-0', 'pointer-events-none');
+            helpModal.querySelector('div').classList.remove('scale-100');
+            helpModal.querySelector('div').classList.add('scale-95');
+        }
+
+        // 构建邻接表
+        function buildAdjacencyList() {
+            const adjacency = new Map();
+            
+            // 初始化所有节点的邻接列表
+            for (const nodeId of graph.nodes.keys()) {
+                adjacency.set(nodeId, []);
+            }
+            
+            // 添加边到邻接表（无向图，双向添加）
+            graph.edges.forEach((edge) => {
+                adjacency.get(edge.source).push({ to: edge.target, weight: edge.w });
+                adjacency.get(edge.target).push({ to: edge.source, weight: edge.w });
+            });
+            
+            return adjacency;
+        }
+
+        // Dijkstra算法：找到从source到target的最短路径
+        function dijkstra(source, target) {
+            // 检查节点是否存在
+            if (!graph.nodes.has(source) || !graph.nodes.has(target)) {
+                return { success: false, error: '起点或终点节点不存在' };
+            }
+            
+            if (source === target) {
+                return { 
+                    success: true, 
+                    pathNodes: [source], 
+                    pathEdges: [], 
+                    distance: 0 
+                };
+            }
+            
+            // 初始化距离表：key是节点ID，value是{ distance: 距离, prev: 前驱节点 }
+            const distances = new Map();
+            // 优先队列：[{ node: 节点ID, distance: 距离 }]，按distance升序排列
+            const priorityQueue = [];
+            // 已访问节点
+            const visited = new Set();
+            
+            // 初始化所有节点的距离为无穷大
+            for (const nodeId of graph.nodes.keys()) {
+                distances.set(nodeId, { distance: Infinity, prev: null });
+            }
+            
+            // 起点距离设为0
+            distances.set(source, { distance: 0, prev: null });
+            priorityQueue.push({ node: source, distance: 0 });
+            
+            // 构建邻接表：key是节点ID，value是[{ to: 节点ID, weight: 权重 }]
+            const adjacency = buildAdjacencyList();
+            
+            // 处理优先队列
+            while (priorityQueue.length > 0) {
+                // 取出距离最小的节点（简单实现，实际应使用堆）
+                priorityQueue.sort((a, b) => a.distance - b.distance);
+                const current = priorityQueue.shift();
+                
+                // 如果已访问，跳过
+                if (visited.has(current.node)) continue;
+                visited.add(current.node);
+                
+                // 到达终点，退出
+                if (current.node === target) break;
+                
+                // 遍历邻接节点
+                const neighbors = adjacency.get(current.node) || [];
+                for (const neighbor of neighbors) {
+                    if (visited.has(neighbor.to)) continue;
+                    
+                    // 计算新距离
+                    const newDistance = current.distance + neighbor.weight;
+                    const neighborData = distances.get(neighbor.to);
+                    
+                    // 如果新距离更小，更新
+                    if (newDistance < neighborData.distance) {
+                        distances.set(neighbor.to, { 
+                            distance: newDistance, 
+                            prev: current.node 
+                        });
+                        
+                        // 添加到优先队列
+                        priorityQueue.push({ node: neighbor.to, distance: newDistance });
+                    }
+                }
+            }
+            
+            // 检查是否可达
+            const targetData = distances.get(target);
+            if (targetData.distance === Infinity) {
+                return { success: false, error: `从${source}到${target}没有可达路径` };
+            }
+            
+            // 回溯找到路径
+            const pathNodes = [];
+            let currentNode = target;
+            while (currentNode !== null) {
+                pathNodes.unshift(currentNode);
+                currentNode = distances.get(currentNode).prev;
+            }
+            
+            // 构建路径上的边ID数组
+            const pathEdges = [];
+            for (let i = 0; i < pathNodes.length - 1; i++) {
+                const u = pathNodes[i];
+                const v = pathNodes[i+1];
+                const edgeId = [u, v].sort().join('-');
+                pathEdges.push(edgeId);
+            }
+            
+            return {
+                success: true,
+                pathNodes: pathNodes,
+                pathEdges: pathEdges,
+                distance: targetData.distance
+            };
+        }
+
+        // 处理Dijkstra查询
+        function handleDijkstraQuery() {
+            const inputValue = dijkstraInput.value.trim();
+            if (!inputValue) {
+                showTooltip('请输入起点和终点节点');
+                return;
+            }
+            
+            const parts = inputValue.split(/\s+/);
+            if (parts.length !== 2) {
+                showTooltip('请输入两个节点（用空格分隔）');
+                return;
+            }
+            
+            const [source, target] = parts;
+            
+            // 验证输入
+            if (!isValidPositiveInteger(source) || !isValidPositiveInteger(target)) {
+                showTooltip('节点必须是有效的正整数');
+                return;
+            }
+            
+            // 执行Dijkstra算法
+            const result = dijkstra(source, target);
+            
+            // 重置结果状态
+            dijkstraResult.hasResult = false;
+            dijkstraResult.error = '';
+            dijkstraResultEl.classList.add('hidden');
+            dijkstraErrorEl.classList.add('hidden');
+            
+            if (result.success) {
+                // 保存结果
+                dijkstraResult.pathNodes = result.pathNodes;
+                dijkstraResult.pathEdges = result.pathEdges;
+                dijkstraResult.distance = result.distance;
+                dijkstraResult.source = source;
+                dijkstraResult.target = target;
+                dijkstraResult.hasResult = true;
+                
+                // 显示结果
+                dijkstraResultText.textContent = `最短路径：${result.pathNodes.join(' → ')}，总长度：${result.distance}`;
+                dijkstraResultEl.classList.remove('hidden');
+            } else {
+                // 显示错误
+                dijkstraResult.error = result.error;
+                dijkstraErrorText.textContent = result.error;
+                dijkstraErrorEl.classList.remove('hidden');
+            }
+            
+            // 重新渲染图形
+            renderGraph();
+        }
+
+        // 初始化应用
+        window.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>
