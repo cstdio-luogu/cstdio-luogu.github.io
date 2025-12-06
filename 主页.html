@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>cstdio_luogu的主页</title>
+    <style>
+        /* 全局样式重置 */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Microsoft YaHei', 'Segoe UI', sans-serif;
+        }
+
+        /* 动态星空背景（纯CSS，无图片） */
+        body {
+            background: #000; /* 纯黑底色 */
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            padding: 20px;
+            position: relative;
+            overflow: hidden; /* 隐藏溢出的星星 */
+        }
+
+        /* 生成星星 */
+        body::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(2px 2px at 20px 30px, #fff, rgba(0,0,0,0)),
+                        radial-gradient(2px 2px at 40px 70px, #fff, rgba(0,0,0,0)),
+                        radial-gradient(2px 2px at 50px 160px, #fff, rgba(0,0,0,0)),
+                        radial-gradient(2px 2px at 90px 40px, #fff, rgba(0,0,0,0)),
+                        radial-gradient(2px 2px at 130px 80px, #fff, rgba(0,0,0,0)),
+                        radial-gradient(2px 2px at 160px 120px, #fff, rgba(0,0,0,0)),
+                        radial-gradient(2px 2px at 220px 190px, #fff, rgba(0,0,0,0)),
+                        radial-gradient(2px 2px at 290px 160px, #fff, rgba(0,0,0,0)),
+                        radial-gradient(2px 2px at 340px 110px, #00ffff, rgba(0,0,0,0)), /* 蓝色星星 */
+                        radial-gradient(2px 2px at 390px 200px, #00ffff, rgba(0,0,0,0)),
+                        radial-gradient(3px 3px at 50px 250px, #ff00ff, rgba(0,0,0,0)), /* 紫色星星 */
+                        radial-gradient(3px 3px at 100px 300px, #ff00ff, rgba(0,0,0,0)),
+                        radial-gradient(2px 2px at 150px 320px, #fff, rgba(0,0,0,0)),
+                        radial-gradient(2px 2px at 200px 350px, #fff, rgba(0,0,0,0)),
+                        radial-gradient(3px 3px at 250px 380px, #ffff00, rgba(0,0,0,0)); /* 黄色星星 */
+            background-repeat: repeat;
+            background-size: 400px 400px;
+            z-index: -1;
+            /* 关键修改：缩短动画时长到10秒，增加闪烁频率 */
+            animation: starMove 10s ease-in-out infinite; 
+        }
+
+        /* 增强版：明显的闪烁+移动动画 */
+        @keyframes starMove {
+            0% {
+                transform: translate(0, 0);
+                opacity: 0.2; /* 初始暗 */
+            }
+            20% {
+                opacity: 1; /* 突然变亮（闪烁核心） */
+            }
+            40% {
+                opacity: 0.5; /* 变暗 */
+            }
+            60% {
+                opacity: 1; /* 又变亮 */
+            }
+            80% {
+                opacity: 0.3; /* 再变暗 */
+            }
+            100% {
+                transform: translate(-20px, -20px); /* 明显移动 */
+                opacity: 0.2; /* 回到初始暗 */
+            }
+        }
+
+        /* 主页标题样式（霓虹发光） */
+        .home-title {
+            font-size: 3.5rem;
+            margin-bottom: 20px;
+            text-shadow: 0 0 15px #00ffff, 0 0 30px #00ffff;
+            text-align: center;
+            animation: glow 2s ease-in-out infinite alternate;
+        }
+
+        /* 标题发光动画 */
+        @keyframes glow {
+            from { text-shadow: 0 0 15px #00ffff, 0 0 30px #00ffff; }
+            to { text-shadow: 0 0 20px #00ffff, 0 0 40px #00ffff, 0 0 60px #00ffff; }
+        }
+
+        /* 个人简介卡片（毛玻璃） */
+        .profile-card {
+            background: rgba(25, 25, 50, 0.7);
+            border-radius: 20px;
+            padding: 30px;
+            margin-bottom: 40px;
+            box-shadow: 0 0 30px rgba(0, 255, 255, 0.3);
+            max-width: 600px;
+            text-align: center;
+            backdrop-filter: blur(5px);
+        }
+
+        .profile-card p {
+            font-size: 1.2rem;
+            line-height: 1.8;
+            margin-bottom: 15px;
+            color: #e0e0ff;
+        }
+
+        /* 链接容器样式 */
+        .links-container {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 20px;
+            max-width: 800px;
+            width: 100%;
+        }
+
+        /* 链接按钮样式 */
+        .link-btn {
+            background: linear-gradient(45deg, #1a2a6c, #b21f1f, #fdbb2d);
+            color: white;
+            text-decoration: none;
+            padding: 15px 30px;
+            border-radius: 50px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+            transition: all 0.3s ease;
+            border: none;
+            cursor: pointer;
+            min-width: 180px;
+            text-align: center;
+            backdrop-filter: blur(3px);
+        }
+
+        .link-btn:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 20px rgba(0, 255, 255, 0.4);
+            background: linear-gradient(45deg, #fdbb2d, #b21f1f, #1a2a6c);
+        }
+
+        /* 页脚样式 */
+        footer {
+            position: fixed;
+            bottom: 20px;
+            font-size: 0.9rem;
+            color: #ccccff;
+            opacity: 0.7;
+        }
+
+        /* 响应式适配 */
+        @media (max-width: 600px) {
+            .home-title {
+                font-size: 2.2rem;
+            }
+
+            .link-btn {
+                min-width: 100%;
+                padding: 12px 20px;
+            }
+
+            .profile-card {
+                padding: 20px;
+                margin-bottom: 30px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- 主页标题 -->
+    <h1 class="home-title">cstdio_luogu的主页</h1>
+
+    <!-- 个人简介卡片 -->
+    <div class="profile-card">
+        <p>欢迎来到我的个人主页！</p>
+        <p>这里汇总了我常用的网页链接，点击下方按钮即可跳转</p>
+    </div>
+
+    <!-- 链接容器 - 可自定义修改 -->
+    <div class="links-container">
+        <!-- 示例链接1：洛谷 -->
+        <a href="https://www.luogu.com.cn/" class="link-btn" target="_blank">洛谷OJ</a>
+        <!-- 示例链接2：GitHub -->
+        <a href="https://atcoder.jp/" class="link-btn" target="_blank">AtCoder</a>
+        <!-- 示例链接3：CSDN -->
+        <a href="https://www.csdn.net/" class="link-btn" target="_blank">CSDN博客</a>
+        <!-- 示例链接4：牛客网 -->
+        <a href="https://www.nowcoder.com/" class="link-btn" target="_blank">我的cps计数器</a>
+        <!-- 新增链接：复制上面一行，修改href和文字即可 -->
+        <!-- <a href="你的目标URL" class="link-btn" target="_blank">链接名称</a> -->
+    </div>
+
+    <!-- 页脚 -->
+    <footer>© 2025 cstdio_luogu - 个人主页</footer>
+</body>
+</html>

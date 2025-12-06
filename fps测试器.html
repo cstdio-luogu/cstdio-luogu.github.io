@@ -1,0 +1,781 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>十秒点击速度测试器 - 带准备倒计时和缓冲功能</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #1a2a6c, #b21f1f, #fdbb2d);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+            color: #fff;
+        }
+        
+        .container {
+            background: rgba(0, 0, 0, 0.7);
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            width: 100%;
+            max-width: 800px;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        h1 {
+            font-size: 2.8rem;
+            margin-bottom: 10px;
+            color: #ffcc00;
+            text-shadow: 0 0 10px rgba(255, 204, 0, 0.5);
+        }
+        
+        .subtitle {
+            font-size: 1.2rem;
+            margin-bottom: 30px;
+            opacity: 0.8;
+        }
+        
+        .stats-container {
+            display: flex;
+            justify-content: space-around;
+            margin: 30px 0;
+            flex-wrap: wrap;
+        }
+        
+        .stat-box {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 20px;
+            width: 200px;
+            margin: 10px;
+            transition: transform 0.3s;
+        }
+        
+        .stat-box:hover {
+            transform: translateY(-5px);
+            background: rgba(255, 255, 255, 0.15);
+        }
+        
+        .stat-value {
+            font-size: 3.5rem;
+            font-weight: bold;
+            color: #4dff4d;
+            margin: 10px 0;
+        }
+        
+        .stat-label {
+            font-size: 1.1rem;
+            opacity: 0.8;
+        }
+        
+        .timer {
+            font-size: 5rem;
+            font-weight: bold;
+            margin: 30px 0;
+            color: #ff4d4d;
+            text-shadow: 0 0 15px rgba(255, 77, 77, 0.7);
+        }
+        
+        .progress-container {
+            width: 100%;
+            height: 20px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            margin: 20px 0;
+            overflow: hidden;
+        }
+        
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #ff4d4d, #ffcc00);
+            width: 0%;
+            transition: width 0.5s;
+        }
+        
+        .click-area {
+            background: rgba(255, 255, 255, 0.05);
+            border: 2px dashed rgba(255, 255, 255, 0.2);
+            border-radius: 15px;
+            padding: 40px;
+            margin: 30px 0;
+            cursor: pointer;
+            transition: all 0.3s;
+            position: relative;
+            min-height: 200px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .click-area:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: rgba(255, 255, 255, 0.4);
+        }
+        
+        .click-area.active {
+            background: rgba(0, 100, 0, 0.2);
+            border: 2px solid #4dff4d;
+        }
+        
+        .click-area.completed {
+            background: rgba(77, 77, 77, 0.3);
+            border: 2px solid #ff9900;
+            cursor: not-allowed;
+        }
+        
+        .click-area.cool-down {
+            background: rgba(77, 77, 255, 0.2);
+            border: 2px solid #4d4dff;
+            cursor: not-allowed;
+            animation: pulse 2s infinite;
+            pointer-events: none; /* 禁止点击事件 */
+        }
+        
+        .click-area.preparing {
+            background: rgba(255, 153, 0, 0.2);
+            border: 2px solid #ff9900;
+            cursor: not-allowed;
+            pointer-events: none; /* 准备期间禁止点击 */
+        }
+        
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(77, 77, 255, 0.4); }
+            70% { box-shadow: 0 0 0 15px rgba(77, 77, 255, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(77, 77, 255, 0); }
+        }
+        
+        .click-area h2 {
+            font-size: 1.8rem;
+            margin-bottom: 20px;
+            color: #ffcc00;
+        }
+        
+        .click-area .instruction {
+            font-size: 1.2rem;
+            opacity: 0.8;
+        }
+        
+        .click-count-display {
+            font-size: 4rem;
+            font-weight: bold;
+            color: #4dff4d;
+        }
+        
+        .cool-down-display {
+            font-size: 3rem;
+            font-weight: bold;
+            color: #4d4dff;
+            animation: colorChange 1s infinite alternate;
+        }
+        
+        .prepare-display {
+            font-size: 6rem;
+            font-weight: bold;
+            color: #ff9900;
+            animation: bounce 1s infinite;
+        }
+        
+        @keyframes colorChange {
+            from { color: #4d4dff; }
+            to { color: #ff4d4d; }
+        }
+        
+        @keyframes bounce {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.2); }
+            100% { transform: scale(1); }
+        }
+        
+        .controls {
+            margin: 30px 0;
+        }
+        
+        button {
+            background: linear-gradient(45deg, #ff4d4d, #ff9900);
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            font-size: 1.2rem;
+            border-radius: 50px;
+            cursor: pointer;
+            margin: 0 10px;
+            transition: all 0.3s;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+        }
+        
+        button:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
+        }
+        
+        button:active {
+            transform: translateY(1px);
+        }
+        
+        button:disabled {
+            background: linear-gradient(45deg, #666, #999);
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+        
+        button.cool-down, button.preparing {
+            pointer-events: none; /* 缓冲期/准备期按钮禁止点击 */
+            opacity: 0.6;
+        }
+        
+        .result-container {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 20px;
+            margin-top: 30px;
+            text-align: left;
+        }
+        
+        .result-container h3 {
+            color: #ffcc00;
+            margin-bottom: 15px;
+            font-size: 1.5rem;
+        }
+        
+        .result-text {
+            font-size: 1.2rem;
+            line-height: 1.6;
+            padding: 15px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 10px;
+        }
+        
+        .history-container {
+            margin-top: 30px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 20px;
+        }
+        
+        .history-container h3 {
+            color: #ffcc00;
+            margin-bottom: 15px;
+            font-size: 1.5rem;
+            text-align: center;
+        }
+        
+        .history-list {
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        
+        .history-item {
+            padding: 10px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            justify-content: space-between;
+        }
+        
+        .click-animation {
+            position: absolute;
+            width: 30px;
+            height: 30px;
+            background: rgba(255, 255, 255, 0.8);
+            border-radius: 50%;
+            pointer-events: none;
+            animation: clickEffect 0.5s ease-out;
+        }
+        
+        @keyframes clickEffect {
+            0% {
+                transform: scale(0);
+                opacity: 0.8;
+            }
+            100% {
+                transform: scale(3);
+                opacity: 0;
+            }
+        }
+        
+        .status-badge {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            padding: 5px 10px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            font-weight: bold;
+        }
+        
+        .status-ready {
+            background: rgba(77, 255, 77, 0.2);
+            color: #4dff4d;
+        }
+        
+        .status-active {
+            background: rgba(255, 204, 0, 0.2);
+            color: #ffcc00;
+        }
+        
+        .status-completed {
+            background: rgba(255, 77, 77, 0.2);
+            color: #ff4d4d;
+        }
+        
+        .status-cool-down {
+            background: rgba(77, 77, 255, 0.2);
+            color: #4d4dff;
+        }
+        
+        .status-preparing {
+            background: rgba(255, 153, 0, 0.2);
+            color: #ff9900;
+        }
+        
+        .performance-meter {
+            display: flex;
+            justify-content: center;
+            margin: 20px 0;
+        }
+        
+        .meter-bar {
+            height: 20px;
+            width: 80%;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            overflow: hidden;
+            position: relative;
+        }
+        
+        .meter-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #ff4d4d, #ffcc00, #4dff4d);
+            width: 0%;
+            transition: width 0.8s;
+        }
+        
+        .meter-labels {
+            display: flex;
+            justify-content: space-between;
+            width: 80%;
+            margin: 5px auto;
+            font-size: 0.9rem;
+        }
+        
+        @media (max-width: 600px) {
+            .stats-container {
+                flex-direction: column;
+                align-items: center;
+            }
+            
+            .stat-box {
+                width: 100%;
+                max-width: 300px;
+            }
+            
+            h1 {
+                font-size: 2rem;
+            }
+            
+            .timer {
+                font-size: 3.5rem;
+            }
+            
+            .prepare-display {
+                font-size: 4rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>点击速度测试器</h1>
+        <p class="subtitle">点击开始后将有3秒准备时间，随后10秒内尽可能多地点击，测试结束后有5秒缓冲时间</p>
+        
+        <div class="stats-container">
+            <div class="stat-box">
+                <div class="stat-label">剩余时间</div>
+                <div class="timer" id="timer">10.0</div>
+            </div>
+            
+            <div class="stat-box">
+                <div class="stat-label">点击次数</div>
+                <div class="stat-value" id="click-count">0</div>
+            </div>
+            
+            <div class="stat-box">
+                <div class="stat-label">每秒点击次数</div>
+                <div class="stat-value" id="cps">0.0</div>
+            </div>
+        </div>
+        
+        <div class="progress-container">
+            <div class="progress-bar" id="progress-bar"></div>
+        </div>
+        
+        <div class="click-area" id="click-area">
+            <div class="status-badge status-ready" id="status-badge">准备开始</div>
+            <div id="initial-instruction">
+                <h2>点击开始测试</h2>
+                <p class="instruction">准备好后点击此区域开始3秒准备倒计时</p>
+            </div>
+        </div>
+        
+        <div class="controls">
+            <button id="start-btn">开始测试</button>
+            <button id="reset-btn" disabled>重新开始</button>
+        </div>
+        
+        <div class="result-container">
+            <h3>测试结果分析</h3>
+            <p class="result-text" id="result-text">测试尚未开始，点击上方按钮开始测试。</p>
+            <div class="performance-meter">
+                <div class="meter-bar">
+                    <div class="meter-fill" id="meter-fill"></div>
+                </div>
+            </div>
+            <div class="meter-labels">
+                <span>0 CPS</span>
+                <span>5 CPS</span>
+                <span>10 CPS</span>
+            </div>
+        </div>
+        
+        <div class="history-container">
+            <h3>历史记录</h3>
+            <div class="history-list" id="history-list">
+                <!-- 历史记录将在这里显示 -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 获取DOM元素
+        const timerDisplay = document.getElementById('timer');
+        const clickCountDisplay = document.getElementById('click-count');
+        const cpsDisplay = document.getElementById('cps');
+        const progressBar = document.getElementById('progress-bar');
+        const clickArea = document.getElementById('click-area');
+        const startBtn = document.getElementById('start-btn');
+        const resetBtn = document.getElementById('reset-btn');
+        const resultText = document.getElementById('result-text');
+        const historyList = document.getElementById('history-list');
+        const initialInstruction = document.getElementById('initial-instruction');
+        const statusBadge = document.getElementById('status-badge');
+        const meterFill = document.getElementById('meter-fill');
+        
+        // 状态变量
+        let clickCount = 0;
+        let timer = null;
+        let coolDownTimer = null;
+        let prepareTimer = null; // 准备倒计时计时器
+        let timeLeft = 10;
+        let coolDownTime = 5; // 缓冲时间
+        let prepareTime = 3; // 准备时间（3秒）
+        let startTime = null;
+        let isActive = false;
+        let isCompleted = false;
+        let isCoolDown = false;
+        let isPreparing = false; // 新增：准备阶段状态
+        let history = [];
+        
+        // 开始测试（先进入准备阶段）
+        function startTest() {
+            if (isActive || isCompleted || isCoolDown || isPreparing) return;
+            
+            // 初始化状态
+            clickCount = 0;
+            timeLeft = 10;
+            coolDownTime = 5;
+            prepareTime = 3;
+            isActive = false;
+            isCompleted = false;
+            isCoolDown = false;
+            isPreparing = true;
+            
+            // 更新UI为准备状态
+            clickCountDisplay.textContent = '0';
+            cpsDisplay.textContent = '0.0';
+            timerDisplay.textContent = prepareTime.toFixed(1); // 显示准备倒计时
+            progressBar.style.width = '0%';
+            meterFill.style.width = '0%';
+            initialInstruction.style.display = 'none';
+            clickArea.innerHTML = `<div class="prepare-display">${prepareTime}</div>`;
+            clickArea.classList.add('preparing');
+            clickArea.classList.remove('active', 'completed', 'cool-down');
+            startBtn.disabled = true;
+            resetBtn.disabled = true;
+            startBtn.classList.add('preparing');
+            resetBtn.classList.add('preparing');
+            resultText.textContent = "准备开始测试...请做好点击准备！";
+            statusBadge.textContent = "准备中";
+            statusBadge.className = "status-badge status-preparing";
+            
+            // 开始3秒准备倒计时
+            prepareTimer = setInterval(updatePrepareTimer, 1000); // 每秒更新一次
+        }
+        
+        // 更新准备倒计时
+        function updatePrepareTimer() {
+            prepareTime--;
+            clickArea.innerHTML = `<div class="prepare-display">${prepareTime}</div>`;
+            timerDisplay.textContent = prepareTime.toFixed(1);
+            
+            // 准备倒计时结束，开始正式测试
+            if (prepareTime <= 0) {
+                clearInterval(prepareTimer);
+                startFormalTest();
+            }
+        }
+        
+        // 正式开始10秒测试
+        function startFormalTest() {
+            isPreparing = false;
+            isActive = true;
+            startTime = new Date();
+            
+            // 更新UI为测试状态
+            clickArea.innerHTML = '<div class="click-count-display">0</div>';
+            clickArea.classList.remove('preparing');
+            clickArea.classList.add('active');
+            startBtn.classList.remove('preparing');
+            resetBtn.classList.remove('preparing');
+            resultText.textContent = "测试进行中...快速点击！";
+            statusBadge.textContent = "测试中";
+            statusBadge.className = "status-badge status-active";
+            timerDisplay.textContent = timeLeft.toFixed(1);
+            
+            // 开始10秒测试倒计时
+            timer = setInterval(updateTimer, 100);
+        }
+        
+        // 更新测试计时器
+        function updateTimer() {
+            const currentTime = new Date();
+            const elapsed = (currentTime - startTime) / 1000;
+            timeLeft = Math.max(0, 10 - elapsed);
+            
+            timerDisplay.textContent = timeLeft.toFixed(1);
+            progressBar.style.width = `${(1 - timeLeft/10) * 100}%`;
+            
+            // 实时计算每秒点击次数
+            if (elapsed > 0.1) {
+                const cps = clickCount / elapsed;
+                cpsDisplay.textContent = cps.toFixed(1);
+            }
+            
+            // 测试结束
+            if (timeLeft <= 0) {
+                endTest();
+            }
+        }
+        
+        // 结束测试，进入缓冲期
+        function endTest() {
+            clearInterval(timer);
+            isActive = false;
+            isCompleted = true;
+            isCoolDown = true;
+            
+            // 计算最终结果
+            const totalTime = (new Date() - startTime) / 1000;
+            const finalCps = clickCount / totalTime;
+            
+            // 更新UI显示结果
+            clickArea.classList.remove('active');
+            clickArea.classList.add('completed');
+            clickArea.innerHTML = `
+                <div class="status-badge status-completed">测试结束</div>
+                <div style="text-align:center;">
+                    <h2>测试完成!</h2>
+                    <p class="stat-value" style="font-size:2.5rem;">总点击: ${clickCount}</p>
+                    <p class="stat-value" style="font-size:2.5rem;">CPS: ${finalCps.toFixed(1)}</p>
+                </div>
+            `;
+            
+            // 更新结果分析
+            let performance = '';
+            if (finalCps < 2) performance = '入门级 - 继续练习！';
+            else if (finalCps < 5) performance = '普通级 - 还不错！';
+            else if (finalCps < 8) performance = '高手级 - 非常棒！';
+            else performance = '大神级 - 太厉害了！';
+            
+            resultText.textContent = `在10秒内你点击了${clickCount}次，平均每秒点击${finalCps.toFixed(1)}次。${performance}`;
+            
+            // 更新性能条
+            const meterWidth = Math.min(finalCps * 10, 100);
+            meterFill.style.width = `${meterWidth}%`;
+            
+            // 保存历史记录
+            const historyItem = {
+                time: new Date().toLocaleString(),
+                clicks: clickCount,
+                cps: finalCps.toFixed(1)
+            };
+            history.unshift(historyItem);
+            updateHistory();
+            
+            // 进入5秒缓冲期
+            startCoolDown();
+        }
+        
+        // 开始缓冲期
+        function startCoolDown() {
+            isCoolDown = true;
+            coolDownTime = 5;
+            
+            // 更新UI显示缓冲状态
+            clickArea.classList.remove('completed');
+            clickArea.classList.add('cool-down');
+            statusBadge.textContent = "缓冲中";
+            statusBadge.className = "status-badge status-cool-down";
+            
+            // 禁用所有按钮
+            startBtn.disabled = true;
+            resetBtn.disabled = true;
+            startBtn.classList.add('cool-down');
+            resetBtn.classList.add('cool-down');
+            
+            // 开始缓冲倒计时
+            coolDownTimer = setInterval(updateCoolDown, 100);
+        }
+        
+        // 更新缓冲计时器
+        function updateCoolDown() {
+            const currentTime = new Date();
+            const elapsed = (currentTime - startTime) / 1000 - 10; // 从测试结束后开始计时
+            coolDownTime = Math.max(0, 5 - elapsed);
+            
+            // 更新缓冲显示
+            clickArea.innerHTML = `
+                <div class="status-badge status-cool-down">缓冲中</div>
+                <div class="cool-down-display">${coolDownTime.toFixed(1)}</div>
+                <div style="margin-top:20px; color:#ffcc00; font-size:1.2rem;">缓冲时间，请稍候...</div>
+            `;
+            
+            // 缓冲结束
+            if (coolDownTime <= 0) {
+                endCoolDown();
+            }
+        }
+        
+        // 结束缓冲
+        function endCoolDown() {
+            clearInterval(coolDownTimer);
+            isCoolDown = false;
+            isCompleted = false;
+            
+            // 恢复按钮状态
+            resetBtn.disabled = false;
+            startBtn.disabled = false;
+            startBtn.classList.remove('cool-down');
+            resetBtn.classList.remove('cool-down');
+            
+            // 恢复点击区域初始状态
+            clickArea.classList.remove('cool-down', 'completed');
+            clickArea.innerHTML = `
+                <div class="status-badge status-ready">准备开始</div>
+                <div id="initial-instruction">
+                    <h2>点击开始测试</h2>
+                    <p class="instruction">准备好后点击此区域开始3秒准备倒计时</p>
+                </div>
+            `;
+            
+            // 重置计时器显示
+            timerDisplay.textContent = '10.0';
+            progressBar.style.width = '0%';
+        }
+        
+        // 更新历史记录
+        function updateHistory() {
+            historyList.innerHTML = '';
+            
+            history.forEach(item => {
+                const div = document.createElement('div');
+                div.className = 'history-item';
+                div.innerHTML = `
+                    <span>${item.time}</span>
+                    <span>点击: ${item.clicks}次 | CPS: ${item.cps}</span>
+                `;
+                historyList.appendChild(div);
+            });
+        }
+        
+        // 重置测试
+        function resetTest() {
+            // 清除所有计时器
+            clearInterval(timer);
+            clearInterval(coolDownTimer);
+            clearInterval(prepareTimer);
+            
+            // 重置状态变量
+            clickCount = 0;
+            timeLeft = 10;
+            coolDownTime = 5;
+            prepareTime = 3;
+            isActive = false;
+            isCompleted = false;
+            isCoolDown = false;
+            isPreparing = false;
+            
+            // 重置UI
+            clickCountDisplay.textContent = '0';
+            cpsDisplay.textContent = '0.0';
+            timerDisplay.textContent = '10.0';
+            progressBar.style.width = '0%';
+            meterFill.style.width = '0%';
+            
+            clickArea.classList.remove('active', 'completed', 'cool-down', 'preparing');
+            clickArea.innerHTML = `
+                <div class="status-badge status-ready">准备开始</div>
+                <div id="initial-instruction">
+                    <h2>点击开始测试</h2>
+                    <p class="instruction">准备好后点击此区域开始3秒准备倒计时</p>
+                </div>
+            `;
+            
+            resultText.textContent = "测试尚未开始，点击上方按钮开始测试。";
+            startBtn.disabled = false;
+            resetBtn.disabled = true;
+            
+            startBtn.classList.remove('cool-down', 'preparing');
+            resetBtn.classList.remove('cool-down', 'preparing');
+        }
+        
+        // 点击区域事件（仅测试活跃状态有效）
+        clickArea.addEventListener('click', function(e) {
+            if (!isActive || isCoolDown || isCompleted || isPreparing) return;
+            
+            // 增加点击计数
+            clickCount++;
+            clickCountDisplay.textContent = clickCount;
+            document.querySelector('.click-count-display').textContent = clickCount;
+            
+            // 创建点击动画效果
+            const clickAnimation = document.createElement('div');
+            clickAnimation.className = 'click-animation';
+            clickAnimation.style.left = `${e.clientX - clickArea.getBoundingClientRect().left - 15}px`;
+            clickAnimation.style.top = `${e.clientY - clickArea.getBoundingClientRect().top - 15}px`;
+            clickArea.appendChild(clickAnimation);
+            
+            // 移除动画元素
+            setTimeout(() => {
+                clickAnimation.remove();
+            }, 500);
+        });
+        
+        // 按钮事件
+        startBtn.addEventListener('click', startTest);
+        resetBtn.addEventListener('click', resetTest);
+        
+        // 初始化
+        updateHistory();
+    </script>
+</body>
+</html>
