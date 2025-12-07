@@ -123,6 +123,7 @@
             gap: 20px;
             max-width: 800px;
             width: 100%;
+            margin-bottom: 50px; /* 给点赞模块留出空间 */
         }
 
         /* 链接按钮样式 */
@@ -149,6 +150,93 @@
             background: linear-gradient(45deg, #fdbb2d, #b21f1f, #1a2a6c);
         }
 
+        /* 点赞模块样式（中下位置） */
+        .like-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 40px; /* 页脚上方间距 */
+            position: relative;
+        }
+
+        /* 心形样式 */
+        .like-icon {
+            width: 60px;
+            height: 60px;
+            border: 3px solid #fff; /* 初始白色轮廓 */
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            margin-bottom: 15px;
+        }
+
+        /* 心形内部图标 */
+        .like-icon::after {
+            content: '❤️';
+            font-size: 30px;
+            color: transparent; /* 初始透明（空白轮廓） */
+            -webkit-text-stroke: 2px #fff; /* 白色描边 */
+            transition: all 0.3s ease;
+        }
+
+        /* 点赞后的心形样式 */
+        .like-icon.active::after {
+            color: #ff3855; /* 红色填充 */
+            -webkit-text-stroke: 0; /* 取消描边 */
+        }
+
+        .like-icon.active {
+            border-color: #ff3855; /* 边框变红 */
+            box-shadow: 0 0 20px rgba(255, 56, 85, 0.6);
+        }
+
+        /* 点赞动态效果 */
+        @keyframes likeBounce {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.2); }
+            100% { transform: scale(1); }
+        }
+
+        @keyframes likeSparkle {
+            0% { opacity: 1; transform: scale(0); }
+            50% { opacity: 0.8; transform: scale(1.2); }
+            100% { opacity: 0; transform: scale(1.5); }
+        }
+
+        /* 点赞动画触发类 */
+        .like-icon.animate {
+            animation: likeBounce 0.5s ease-in-out;
+        }
+
+        /* 点赞闪光效果 */
+        .like-icon::before {
+            content: '';
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            background: rgba(255, 56, 85, 0.4);
+            opacity: 0;
+            z-index: -1;
+        }
+
+        .like-icon.animate::before {
+            animation: likeSparkle 0.6s ease-in-out;
+        }
+
+        /* 点赞数样式 */
+        .like-count {
+            font-size: 1.2rem;
+            color: #e0e0ff;
+            text-shadow: 0 0 8px rgba(0, 255, 255, 0.5);
+            font-weight: bold;
+        }
+
         /* 页脚样式 */
         footer {
             position: fixed;
@@ -173,6 +261,16 @@
                 padding: 20px;
                 margin-bottom: 30px;
             }
+
+            /* 移动端点赞心形缩小 */
+            .like-icon {
+                width: 50px;
+                height: 50px;
+            }
+
+            .like-icon::after {
+                font-size: 25px;
+            }
         }
     </style>
 </head>
@@ -195,11 +293,101 @@
         <a href="map.html" class="link-btn" target="_self">图论</a>
     </div>
 
+    <!-- 点赞模块（中下位置）：移除所有文字说明 -->
+    <div class="like-container">
+        <div class="like-icon" id="likeIcon"></div>
+        <div class="like-count" id="likeCount">0</div>
+    </div>
+
     <!-- 页脚 -->
     <footer>© 2025 cstdio_luogu - 个人主页</footer>
+
+    <script>
+        // 点赞功能核心逻辑（支持取消点赞，移除所有文字提示）
+        (function() {
+            // DOM元素
+            const likeIcon = document.getElementById('likeIcon');
+            const likeCount = document.getElementById('likeCount');
+            
+            // localStorage存储键名
+            const STORAGE_KEYS = {
+                count: 'luogu_home_like_count',
+                isLiked: 'luogu_home_is_liked',
+                lastDate: 'luogu_home_last_like_date'
+            };
+
+            // 获取当前日期（格式：YYYY-MM-DD）
+            function getCurrentDate() {
+                const now = new Date();
+                return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+            }
+
+            // 初始化点赞状态
+            function initLikeState() {
+                // 读取存储的点赞数
+                let count = localStorage.getItem(STORAGE_KEYS.count) || 0;
+                likeCount.textContent = count;
+
+                // 读取点赞状态和最后点赞日期
+                const isLiked = localStorage.getItem(STORAGE_KEYS.isLiked) === 'true';
+                const lastDate = localStorage.getItem(STORAGE_KEYS.lastDate) || '';
+                const currentDate = getCurrentDate();
+
+                // 如果跨天，重置点赞状态（仅重置选中状态，计数保留）
+                if (lastDate !== currentDate) {
+                    localStorage.setItem(STORAGE_KEYS.isLiked, 'false');
+                    localStorage.setItem(STORAGE_KEYS.lastDate, currentDate);
+                    likeIcon.classList.remove('active');
+                } else if (isLiked) {
+                    // 当天已点赞，设置激活状态
+                    likeIcon.classList.add('active');
+                }
+            }
+
+            // 切换点赞/取消点赞状态（核心修改：支持取消，且每日仅一次有效点赞）
+            function toggleLike() {
+                const currentDate = getCurrentDate();
+                const lastDate = localStorage.getItem(STORAGE_KEYS.lastDate) || currentDate;
+                const isLiked = localStorage.getItem(STORAGE_KEYS.isLiked) === 'true';
+
+                // 跨天了，重置点赞状态（允许重新点赞）
+                if (lastDate !== currentDate) {
+                    localStorage.setItem(STORAGE_KEYS.lastDate, currentDate);
+                    localStorage.setItem(STORAGE_KEYS.isLiked, 'false');
+                    likeIcon.classList.remove('active');
+                }
+
+                // 切换点赞/取消点赞状态
+                const newIsLiked = !isLiked;
+                let count = Number(localStorage.getItem(STORAGE_KEYS.count) || 0);
+                
+                if (newIsLiked) {
+                    // 点赞：计数+1，激活样式，添加动态效果
+                    count += 1;
+                    likeIcon.classList.add('active', 'animate');
+                } else {
+                    // 取消点赞：计数-1，取消激活样式（无动画）
+                    count = Math.max(0, count - 1); // 防止计数为负
+                    likeIcon.classList.remove('active');
+                }
+
+                // 存储新状态（计数和选中状态）
+                localStorage.setItem(STORAGE_KEYS.count, count);
+                localStorage.setItem(STORAGE_KEYS.isLiked, newIsLiked);
+                likeCount.textContent = count;
+
+                // 移除动画类（避免重复触发）
+                setTimeout(() => {
+                    likeIcon.classList.remove('animate');
+                }, 600);
+            }
+
+            // 绑定点击事件
+            likeIcon.addEventListener('click', toggleLike);
+
+            // 初始化
+            initLikeState();
+        })();
+    </script>
 </body>
-
 </html>
-
-
-
